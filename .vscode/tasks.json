@@ -1,0 +1,83 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start Expo Development Server",
+			"type": "shell",
+			"command": "npm start",
+			"args": [],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true,
+				"clear": false
+			}
+		},
+		{
+			"label": "Start Android",
+			"type": "shell", 
+			"command": "npm run android",
+			"args": [],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build",
+			"dependsOn": "Start Expo Development Server"
+		},
+		{
+			"label": "Start iOS",
+			"type": "shell",
+			"command": "npm run ios", 
+			"args": [],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build",
+			"dependsOn": "Start Expo Development Server"
+		},
+		{
+			"label": "Type Check",
+			"type": "shell",
+			"command": "npm run type-check",
+			"args": [],
+			"problemMatcher": ["$tsc"],
+			"group": "build"
+		},
+		{
+			"label": "Lint",
+			"type": "shell",
+			"command": "npm run lint",
+			"args": [],
+			"problemMatcher": ["$eslint-stylish"],
+			"group": "build"
+		},
+		{
+			"label": "Lint Fix",
+			"type": "shell",
+			"command": "npm run lint:fix",
+			"args": [],
+			"problemMatcher": ["$eslint-stylish"],
+			"group": "build"
+		},
+		{
+			"label": "Test",
+			"type": "shell",
+			"command": "npm test",
+			"args": [],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Test Watch",
+			"type": "shell",
+			"command": "npm run test:watch",
+			"args": [],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}
