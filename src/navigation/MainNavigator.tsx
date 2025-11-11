@@ -1,13 +1,12 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MainTabParamList } from '@/types';
 import { useTheme } from '@/constants/theme';
 
 // Import main screens
-import HomeScreen from '@/screens/main/HomeScreen';
 import WorkoutsScreen from '@/screens/main/WorkoutsScreen';
-import CalendarScreen from '@/screens/main/CalendarScreen';
-import ProgressScreen from '@/screens/main/ProgressScreen';
+import DietScreen from '@/screens/main/DietScreen';
 import ProfileScreen from '@/screens/main/ProfileScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -17,18 +16,14 @@ const MainNavigator: React.FC = () => {
 
   const getTabBarIcon = (route: string, focused: boolean) => {    
     switch (route) {
-      case 'Home':
-        return `🏠`;
       case 'Workouts':
-        return `💪`;
-      case 'Calendar':
-        return `📅`;
-      case 'Progress':
-        return `📊`;
+        return '💪';
+      case 'Diet':
+        return '🥗';
       case 'Profile':
-        return `👤`;
+        return '👤';
       default:
-        return `•`;
+        return '•';
     }
   };
 
@@ -40,34 +35,30 @@ const MainNavigator: React.FC = () => {
           backgroundColor: theme.colors.black,
           borderTopColor: theme.colors.gray800,
           borderTopWidth: 1,
-          paddingTop: 8,
-          paddingBottom: 8,
-          height: 70,
+          paddingTop: 12,
+          paddingBottom: 12,
+          height: 75,
         },
         tabBarActiveTintColor: theme.colors.white,
         tabBarInactiveTintColor: theme.colors.gray400,
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500' as const,
+          fontSize: 13,
+          fontWeight: '600' as const,
+          marginTop: 6,
+        },
+        tabBarIconStyle: {
           marginTop: 4,
         },
         tabBarIcon: ({ focused }) => {
           const icon = getTabBarIcon(route.name, focused);
           return (
-            <React.Fragment>
+            <Text style={{ fontSize: 28 }}>
               {icon}
-            </React.Fragment>
+            </Text>
           );
         },
       })}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen}
-        options={{
-          tabBarLabel: 'Home',
-        }}
-      />
       <Tab.Screen 
         name="Workouts" 
         component={WorkoutsScreen}
@@ -76,17 +67,10 @@ const MainNavigator: React.FC = () => {
         }}
       />
       <Tab.Screen 
-        name="Calendar" 
-        component={CalendarScreen}
+        name="Diet" 
+        component={DietScreen}
         options={{
-          tabBarLabel: 'Calendar',
-        }}
-      />
-      <Tab.Screen 
-        name="Progress" 
-        component={ProgressScreen}
-        options={{
-          tabBarLabel: 'Progress',
+          tabBarLabel: 'Diet Plan',
         }}
       />
       <Tab.Screen 

@@ -254,10 +254,8 @@ export type OnboardingStackParamList = {
 };
 
 export type MainTabParamList = {
-  Home: undefined;
   Workouts: undefined;
-  Calendar: undefined;
-  Progress: undefined;
+  Diet: undefined;
   Profile: undefined;
 };
 
