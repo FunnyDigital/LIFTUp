@@ -44,5 +44,5 @@ const userSlice = createSlice({
   },
 });
 
-export const { setProfile, updateProfile, clearProfile } = userSlice.actions;
+export const { setProfile, setWorkoutPlan, setDietPlan, updateProfile, clearProfile } = userSlice.actions;
 export default userSlice.reducer;

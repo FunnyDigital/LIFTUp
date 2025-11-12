@@ -6,179 +6,176 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useTheme } from '@/constants/theme';
 import Screen from '@/components/ui/Screen';
-import { workoutService } from '@/services/workoutService';
 import { workoutGenerationService } from '@/services/workoutGenerationService';
-import { Workout } from '@/types';
 import { RootState } from '@/store';
+
+interface Exercise {
+  id: string;
+  name: string;
+  sets: number;
+  reps: string;
+  restSeconds: number;
+  instructions: string;
+  equipment?: string[];
+  completed: boolean;
+}
+
+interface DailyWorkout {
+  day: string;
+  exercises: Exercise[];
+}
 
 const WorkoutsScreen: React.FC = () => {
   const theme = useTheme();
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [workouts, setWorkouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string>('');
+  const [weeklyPlan, setWeeklyPlan] = useState<DailyWorkout[]>([]);
+  const [completedExercises, setCompletedExercises] = useState<{ [key: string]: boolean }>({});
   
   // Get user profile for personalization
   const userProfile = useSelector((state: RootState) => state.user.profile);
 
-  const categories = ['All', 'Recommended', 'Strength', 'Cardio', 'Flexibility', 'HIIT'];
+  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const daysShort = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   useEffect(() => {
-    loadWorkouts();
-  }, [selectedCategory]);
+    generatePersonalizedPlan();
+  }, [userProfile]);
 
-  const loadWorkouts = async () => {
+  const generatePersonalizedPlan = () => {
+    if (!userProfile) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      setError(null);
       
-      // If user has profile and "Recommended" category is selected, show personalized workouts
-      if (selectedCategory === 'Recommended' && userProfile) {
-        const personalizedWorkouts = workoutGenerationService.generateWorkoutsForUser(userProfile);
-        setWorkouts(personalizedWorkouts);
-        setLoading(false);
-        return;
+      const selectedDays = userProfile.selectedWorkoutDays || [];
+      const equipment = userProfile.fitnessGoal;
+      const goal = userProfile.fitnessGoal;
+      
+      // Generate workout plan based on user's goal and equipment
+      const workoutRecommendations = workoutGenerationService.generateWorkoutsForUser(userProfile);
+      
+      // Create daily workout plans for selected days
+      const plan: DailyWorkout[] = selectedDays.map((day, index) => {
+        const workout = workoutRecommendations[index % workoutRecommendations.length];
+        
+        return {
+          day,
+          exercises: generateExercisesForWorkout(workout, userProfile)
+        };
+      });
+      
+      setWeeklyPlan(plan);
+      
+      // Set first selected day as default
+      if (plan.length > 0) {
+        setSelectedDay(plan[0].day);
       }
       
-      // Otherwise try to load from Firestore
-      const filters: any = {};
-      if (selectedCategory !== 'All' && selectedCategory !== 'Recommended') {
-        // Map category to difficulty or equipment as needed
-        if (selectedCategory === 'Strength') {
-          filters.equipment = ['barbell', 'dumbbells', 'kettlebell'];
-        } else if (selectedCategory === 'Cardio') {
-          filters.muscleGroups = ['full_body', 'legs'];
-        }
-      }
-      
-      const data = await workoutService.getWorkouts(filters);
-      
-      if (data.length === 0 && userProfile) {
-        // If no workouts in Firestore, show personalized workouts as fallback
-        const personalizedWorkouts = workoutGenerationService.generateWorkoutsForUser(userProfile);
-        setWorkouts(personalizedWorkouts);
-      } else {
-        setWorkouts(data);
-      }
-    } catch (err) {
-      console.error('Error loading workouts:', err);
-      setError('Failed to load workouts from database.');
-      
-      // Fallback to personalized workouts if user has profile
-      if (userProfile) {
-        const personalizedWorkouts = workoutGenerationService.generateWorkoutsForUser(userProfile);
-        setWorkouts(personalizedWorkouts);
-      } else {
-        // Fallback to sample data if no profile
-        setWorkouts([
-          {
-            name: 'Lagos Streets HIIT 🏃',
-            description: 'High-intensity workout inspired by the hustle of Lagos streets.',
-            muscleGroups: ['full_body'],
-            durationMinutes: 20,
-            exercises: [],
-            instructions: 'High-intensity workout inspired by the hustle of Lagos streets.',
-            difficulty: 'intermediate',
-            equipment: [],
-          },
-          {
-            name: 'Afrobeats Dance Cardio 💃',
-            description: 'Fun cardio workout featuring popular Nigerian dance moves.',
-            muscleGroups: ['full_body', 'legs'],
-            durationMinutes: 30,
-            exercises: [],
-            instructions: 'Fun cardio workout featuring popular Nigerian dance moves.',
-            difficulty: 'beginner',
-            equipment: [],
-          },
-        ]);
-      }
-    } finally {
+      setLoading(false);
+    } catch (error) {
+      console.error('Error generating plan:', error);
       setLoading(false);
     }
   };
 
-  const handleStartWorkout = (workout: any) => {
-    Alert.alert(
-      'Start Workout',
-      `Ready to start "${workout.name}"?\n\nDuration: ${workout.durationMinutes} minutes\nLevel: ${workout.difficulty}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Start', 
-          onPress: () => {
-            // TODO: Navigate to workout session screen
-            Alert.alert('Workout Started!', 'Workout session feature coming soon!');
-          }
-        },
-      ]
-    );
+  const generateExercisesForWorkout = (workout: any, profile: any): Exercise[] => {
+    const { fitnessGoal, equipmentLevel } = profile;
+    
+    // Define exercises based on goal and equipment
+    const exerciseDatabase: { [key: string]: any } = {
+      // Home workouts (no equipment)
+      home_lose_belly_fat: [
+        { name: 'Burpees', sets: 3, reps: '10-15', restSeconds: 60, instructions: 'Jump down to plank, push-up, jump back up. Full body explosive movement.' },
+        { name: 'Mountain Climbers', sets: 3, reps: '30 seconds', restSeconds: 45, instructions: 'In plank position, drive knees to chest alternately at high speed.' },
+        { name: 'High Knees', sets: 3, reps: '30 seconds', restSeconds: 45, instructions: 'Run in place bringing knees up to hip level.' },
+        { name: 'Jumping Jacks', sets: 3, reps: '20-30', restSeconds: 30, instructions: 'Jump feet apart while raising arms overhead, return to start.' },
+        { name: 'Plank Hold', sets: 3, reps: '30-60 seconds', restSeconds: 60, instructions: 'Hold straight body position on forearms and toes.' },
+      ],
+      home_build_muscle: [
+        { name: 'Push-ups', sets: 4, reps: '12-15', restSeconds: 60, instructions: 'Hands shoulder-width, lower chest to ground, push back up.' },
+        { name: 'Bodyweight Squats', sets: 4, reps: '15-20', restSeconds: 60, instructions: 'Feet shoulder-width, squat down until thighs parallel to ground.' },
+        { name: 'Pike Push-ups', sets: 3, reps: '10-12', restSeconds: 60, instructions: 'Downward dog position, bend elbows to lower head toward ground.' },
+        { name: 'Lunges', sets: 3, reps: '12 each leg', restSeconds: 60, instructions: 'Step forward, lower back knee toward ground, push back up.' },
+        { name: 'Diamond Push-ups', sets: 3, reps: '8-12', restSeconds: 60, instructions: 'Hands together forming diamond shape, perform push-ups.' },
+      ],
+      // Gym workouts
+      gym_lose_belly_fat: [
+        { name: 'Treadmill HIIT', sets: 1, reps: '20 minutes', restSeconds: 0, instructions: '30 seconds sprint, 30 seconds walk. Repeat for 20 minutes.', equipment: ['treadmill'] },
+        { name: 'Dumbbell Thrusters', sets: 4, reps: '12-15', restSeconds: 60, instructions: 'Squat with dumbbells at shoulders, stand and press overhead.', equipment: ['dumbbells'] },
+        { name: 'Kettlebell Swings', sets: 4, reps: '15-20', restSeconds: 45, instructions: 'Swing kettlebell from between legs to shoulder height using hips.', equipment: ['kettlebell'] },
+        { name: 'Cable Woodchops', sets: 3, reps: '12 each side', restSeconds: 45, instructions: 'Pull cable diagonally across body, engaging core.', equipment: ['cable machine'] },
+        { name: 'Battle Ropes', sets: 4, reps: '30 seconds', restSeconds: 60, instructions: 'Wave heavy ropes up and down alternately or together.' },
+      ],
+      gym_build_muscle: [
+        { name: 'Barbell Bench Press', sets: 4, reps: '8-12', restSeconds: 90, instructions: 'Lie on bench, lower bar to chest, press back up.', equipment: ['barbell', 'bench'] },
+        { name: 'Barbell Squats', sets: 4, reps: '8-12', restSeconds: 90, instructions: 'Bar on upper back, squat down, drive back up through heels.', equipment: ['barbell', 'squat rack'] },
+        { name: 'Dumbbell Rows', sets: 4, reps: '10-12 each arm', restSeconds: 60, instructions: 'Bent over, pull dumbbell to hip, lower with control.', equipment: ['dumbbells'] },
+        { name: 'Overhead Press', sets: 4, reps: '8-10', restSeconds: 90, instructions: 'Press dumbbells or barbell from shoulders to overhead.', equipment: ['dumbbells'] },
+        { name: 'Romanian Deadlifts', sets: 4, reps: '10-12', restSeconds: 90, instructions: 'Hip hinge with slight knee bend, lower bar to mid-shin.', equipment: ['barbell'] },
+      ],
+      gym_strength_training: [
+        { name: 'Deadlifts', sets: 5, reps: '5', restSeconds: 180, instructions: 'Lift bar from ground to standing, keep back straight.', equipment: ['barbell'] },
+        { name: 'Barbell Bench Press', sets: 5, reps: '5', restSeconds: 180, instructions: 'Heavy bench press for maximum strength.', equipment: ['barbell', 'bench'] },
+        { name: 'Barbell Squats', sets: 5, reps: '5', restSeconds: 180, instructions: 'Heavy back squats, focus on depth and form.', equipment: ['barbell', 'squat rack'] },
+        { name: 'Overhead Press', sets: 4, reps: '6-8', restSeconds: 120, instructions: 'Press heavy weight overhead from shoulders.', equipment: ['barbell'] },
+        { name: 'Barbell Rows', sets: 4, reps: '6-8', restSeconds: 120, instructions: 'Bent over row with heavy weight.', equipment: ['barbell'] },
+      ],
+    };
+
+    // Determine which exercise set to use
+    let exerciseKey = '';
+    
+    if (equipmentLevel === 'home') {
+      if (fitnessGoal === 'lose_belly_fat') exerciseKey = 'home_lose_belly_fat';
+      else if (fitnessGoal === 'build_muscle' || fitnessGoal === 'build_lean_mass') exerciseKey = 'home_build_muscle';
+      else exerciseKey = 'home_lose_belly_fat'; // default
+    } else {
+      if (fitnessGoal === 'lose_belly_fat') exerciseKey = 'gym_lose_belly_fat';
+      else if (fitnessGoal === 'build_muscle' || fitnessGoal === 'build_lean_mass') exerciseKey = 'gym_build_muscle';
+      else if (fitnessGoal === 'strength_training') exerciseKey = 'gym_strength_training';
+      else exerciseKey = 'gym_build_muscle'; // default
+    }
+
+    const exercises = exerciseDatabase[exerciseKey] || exerciseDatabase['home_lose_belly_fat'];
+    
+    return exercises.map((ex: any, index: number) => ({
+      id: `ex-${index}`,
+      ...ex,
+      completed: false,
+    }));
   };
 
-  const WorkoutCard = ({ workout }: { workout: any }) => {
-    const getWorkoutIcon = (name: string) => {
-      if (name.toLowerCase().includes('lagos') || name.toLowerCase().includes('hiit')) return '💨';
-      if (name.toLowerCase().includes('afrobeats') || name.toLowerCase().includes('dance')) return '💃';
-      if (name.toLowerCase().includes('strength') || name.toLowerCase().includes('muscle')) return '💪';
-      return '🏋️';
-    };
+  const toggleExerciseComplete = (exerciseId: string) => {
+    setCompletedExercises(prev => ({
+      ...prev,
+      [exerciseId]: !prev[exerciseId]
+    }));
+  };
 
-    const getEquipmentText = (equipment: string[]) => {
-      if (equipment.length === 0) return 'No Equipment';
-      if (equipment.includes('barbell') || equipment.includes('dumbbells')) return 'Full Gym';
-      return 'Basic Equipment';
-    };
+  const getCurrentDayWorkout = () => {
+    return weeklyPlan.find(plan => plan.day === selectedDay);
+  };
 
-    return (
-      <TouchableOpacity 
-        style={[styles.workoutCard, { backgroundColor: theme.colors.gray800 }]}
-        onPress={() => handleStartWorkout(workout)}
-      >
-        <View style={styles.workoutHeader}>
-          <Text style={[styles.workoutIcon, { color: theme.colors.white }]}>
-            {getWorkoutIcon(workout.name)}
-          </Text>
-          <View style={styles.workoutInfo}>
-            <Text style={[styles.workoutTitle, { color: theme.colors.white }]}>
-              {workout.name}
-            </Text>
-            <Text style={[styles.workoutDescription, { color: theme.colors.gray400 }]}>
-              {workout.instructions}
-            </Text>
-          </View>
-        </View>
-        
-        <View style={styles.workoutMeta}>
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaLabel, { color: theme.colors.gray400 }]}>Duration</Text>
-            <Text style={[styles.metaValue, { color: theme.colors.white }]}>{workout.durationMinutes} min</Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaLabel, { color: theme.colors.gray400 }]}>Level</Text>
-            <Text style={[styles.metaValue, { color: theme.colors.white }]}>
-              {workout.difficulty.charAt(0).toUpperCase() + workout.difficulty.slice(1)}
-            </Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaLabel, { color: theme.colors.gray400 }]}>Equipment</Text>
-            <Text style={[styles.metaValue, { color: theme.colors.white }]}>
-              {getEquipmentText(workout.equipment)}
-            </Text>
-          </View>
-        </View>
-        
-        <View style={[styles.startWorkoutButton, { backgroundColor: theme.colors.white }]}>
-          <Text style={[styles.startWorkoutText, { color: theme.colors.black }]}>
-            Start Workout
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
+  const calculateProgress = () => {
+    const currentWorkout = getCurrentDayWorkout();
+    if (!currentWorkout) return 0;
+    
+    const totalExercises = currentWorkout.exercises.length;
+    const completed = currentWorkout.exercises.filter(ex => completedExercises[ex.id]).length;
+    
+    return totalExercises > 0 ? (completed / totalExercises) * 100 : 0;
+  };
+
+  const isWorkoutDay = (day: string) => {
+    return weeklyPlan.some(plan => plan.day === day);
   };
 
   if (loading) {
@@ -187,102 +184,187 @@ const WorkoutsScreen: React.FC = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.white} />
           <Text style={[styles.loadingText, { color: theme.colors.white }]}>
-            Loading Nigerian workouts...
+            Creating your personalized plan...
           </Text>
         </View>
       </Screen>
     );
   }
 
+  if (!userProfile || weeklyPlan.length === 0) {
+    return (
+      <Screen>
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyTitle, { color: theme.colors.white }]}>
+            No Workout Plan Yet
+          </Text>
+          <Text style={[styles.emptyText, { color: theme.colors.gray400 }]}>
+            Complete your onboarding to get a personalized workout plan based on your goals.
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  const currentWorkout = getCurrentDayWorkout();
+  const progress = calculateProgress();
+
   return (
     <Screen>
-      <View style={styles.container}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.white }]}>
-            Workouts 💪
+            Your Workout Plan
           </Text>
-          <Text style={[styles.subtitle, { color: theme.colors.gray300 }]}>
-            {selectedCategory === 'Recommended' && userProfile
-              ? `Personalized for your ${userProfile.fitnessGoal.replace(/_/g, ' ')} goal`
-              : 'Nigerian-inspired fitness routines'
-            }
+          <Text style={[styles.subtitle, { color: theme.colors.gray400 }]}>
+            {userProfile.fitnessGoal.replace(/_/g, ' ').charAt(0).toUpperCase() + userProfile.fitnessGoal.replace(/_/g, ' ').slice(1)} • {userProfile.workoutDaysPerWeek} days/week
           </Text>
-          {error && (
-            <TouchableOpacity 
-              style={styles.retryButton}
-              onPress={loadWorkouts}
-            >
-              <Text style={[styles.retryText, { color: theme.colors.white }]}>
-                ⟲ Retry Loading
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
 
-        {/* Category Filter */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoriesContainer}
-          contentContainerStyle={styles.categories}
-        >
-          {categories.map((category) => (
-            <TouchableOpacity
-              key={category}
-              style={[
-                styles.categoryButton,
-                {
-                  backgroundColor: selectedCategory === category 
-                    ? theme.colors.white 
-                    : theme.colors.gray800,
-                }
-              ]}
-              onPress={() => setSelectedCategory(category)}
-            >
-              <Text style={[
-                styles.categoryText,
-                {
-                  color: selectedCategory === category 
-                    ? theme.colors.black 
-                    : theme.colors.white,
-                }
-              ]}>
-                {category}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Week Day Selector */}
+        <View style={styles.weekContainer}>
+          <View style={styles.daysRow}>
+            {daysOfWeek.map((day, index) => {
+              const isSelected = selectedDay === day;
+              const isActiveDay = isWorkoutDay(day);
+              
+              return (
+                <TouchableOpacity
+                  key={day}
+                  style={[
+                    styles.dayButton,
+                    isActiveDay
+                      ? isSelected
+                        ? { backgroundColor: theme.colors.white, borderColor: theme.colors.white }
+                        : { backgroundColor: theme.colors.gray700, borderColor: theme.colors.gray400 }
+                      : { backgroundColor: theme.colors.black, borderColor: theme.colors.gray700, opacity: 0.5 }
+                  ]}
+                  onPress={() => isActiveDay && setSelectedDay(day)}
+                  disabled={!isActiveDay}
+                >
+                  <Text style={[
+                    styles.dayText,
+                    { color: isSelected ? theme.colors.black : theme.colors.white }
+                  ]}>
+                    {daysShort[index]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={[styles.selectedDayLabel, { color: theme.colors.gray400 }]}>
+            {selectedDay} Workout
+          </Text>
+        </View>
 
-        {/* Workouts List */}
-        <ScrollView 
-          style={styles.workoutsList}
-          showsVerticalScrollIndicator={false}
-        >
-          {workouts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyStateText, { color: theme.colors.gray400 }]}>
-                {error 
-                  ? 'Failed to load workouts' 
-                  : userProfile 
-                    ? 'No workouts found for this category'
-                    : 'Complete your profile to get personalized workouts'
-                }
+        {/* Progress Bar */}
+        {currentWorkout && (
+          <View style={styles.progressContainer}>
+            <View style={styles.progressHeader}>
+              <Text style={[styles.progressTitle, { color: theme.colors.white }]}>
+                Today's Progress
               </Text>
-              <Text style={[styles.emptyStateSubtext, { color: theme.colors.gray500 }]}>
-                {userProfile 
-                  ? 'Try selecting a different category or check back later'
-                  : 'Go to Profile → Edit Profile to set your fitness goals'
-                }
+              <Text style={[styles.progressPercent, { color: theme.colors.white }]}>
+                {Math.round(progress)}%
               </Text>
             </View>
-          ) : (
-            workouts.map((workout, index) => (
-              <WorkoutCard key={workout.id || index} workout={workout} />
-            ))
-          )}
-        </ScrollView>
-      </View>
+            <View style={[styles.progressBarBg, { backgroundColor: theme.colors.gray700 }]}>
+              <View 
+                style={[
+                  styles.progressBarFill, 
+                  { 
+                    backgroundColor: theme.colors.white,
+                    width: `${progress}%`
+                  }
+                ]} 
+              />
+            </View>
+            <Text style={[styles.progressSubtext, { color: theme.colors.gray400 }]}>
+              {currentWorkout.exercises.filter(ex => completedExercises[ex.id]).length} of {currentWorkout.exercises.length} exercises completed
+            </Text>
+          </View>
+        )}
+
+        {/* Exercise List */}
+        {currentWorkout ? (
+          <View style={styles.exercisesContainer}>
+            <Text style={[styles.exercisesTitle, { color: theme.colors.white }]}>
+              Exercises
+            </Text>
+            {currentWorkout.exercises.map((exercise, index) => (
+              <View 
+                key={exercise.id}
+                style={[
+                  styles.exerciseCard,
+                  { backgroundColor: theme.colors.gray800 },
+                  completedExercises[exercise.id] && { opacity: 0.6 }
+                ]}
+              >
+                <View style={styles.exerciseHeader}>
+                  <View style={styles.exerciseInfo}>
+                    <Text style={[styles.exerciseNumber, { color: theme.colors.gray400 }]}>
+                      #{index + 1}
+                    </Text>
+                    <View style={styles.exerciseDetails}>
+                      <Text style={[styles.exerciseName, { color: theme.colors.white }]}>
+                        {exercise.name}
+                      </Text>
+                      <Text style={[styles.exerciseMeta, { color: theme.colors.gray400 }]}>
+                        {exercise.sets} sets × {exercise.reps} reps • Rest: {exercise.restSeconds}s
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.checkbox,
+                      { borderColor: theme.colors.gray400 },
+                      completedExercises[exercise.id] && { 
+                        backgroundColor: theme.colors.white,
+                        borderColor: theme.colors.white
+                      }
+                    ]}
+                    onPress={() => toggleExerciseComplete(exercise.id)}
+                  >
+                    {completedExercises[exercise.id] && (
+                      <Text style={[styles.checkmark, { color: theme.colors.black }]}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.exerciseInstructions, { color: theme.colors.gray300 }]}>
+                  {exercise.instructions}
+                </Text>
+                {exercise.equipment && exercise.equipment.length > 0 && (
+                  <View style={styles.equipmentTags}>
+                    {exercise.equipment.map((eq, idx) => (
+                      <View 
+                        key={idx}
+                        style={[styles.equipmentTag, { backgroundColor: theme.colors.gray700 }]}
+                      >
+                        <Text style={[styles.equipmentText, { color: theme.colors.gray300 }]}>
+                          {eq}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.restDayContainer}>
+            <Text style={[styles.restDayEmoji, { color: theme.colors.white }]}>😴</Text>
+            <Text style={[styles.restDayTitle, { color: theme.colors.white }]}>
+              Rest Day
+            </Text>
+            <Text style={[styles.restDayText, { color: theme.colors.gray400 }]}>
+              No workout scheduled for {selectedDay}. Recovery is important!
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.bottomPadding} />
+      </ScrollView>
     </Screen>
   );
 };
@@ -300,110 +382,189 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
   header: {
     marginTop: 20,
     marginBottom: 24,
+    paddingHorizontal: 20,
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
-  },
-  retryButton: {
-    marginTop: 8,
-    padding: 8,
-  },
-  retryText: {
-    fontSize: 14,
-    textDecorationLine: 'underline',
-  },
-  categoriesContainer: {
-    marginBottom: 24,
-  },
-  categories: {
-    paddingRight: 20,
-    gap: 12,
-  },
-  categoryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  categoryText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  workoutsList: {
-    flex: 1,
-  },
-  workoutCard: {
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  workoutHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  workoutIcon: {
-    fontSize: 32,
-    marginRight: 16,
-  },
-  workoutInfo: {
-    flex: 1,
-  },
-  workoutTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  workoutDescription: {
     fontSize: 14,
     lineHeight: 20,
   },
-  workoutMeta: {
+  weekContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  daysRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  metaItem: {
+  dayButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  metaLabel: {
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  metaValue: {
+  dayText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '700',
   },
-  startWorkoutButton: {
-    paddingVertical: 12,
-    borderRadius: 12,
+  selectedDayLabel: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  progressContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  startWorkoutText: {
+  progressTitle: {
     fontSize: 16,
     fontWeight: '600',
   },
-  emptyState: {
+  progressPercent: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  progressBarBg: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressSubtext: {
+    fontSize: 12,
+  },
+  exercisesContainer: {
+    paddingHorizontal: 20,
+  },
+  exercisesTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  exerciseCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  exerciseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  exerciseInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  exerciseNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  exerciseDetails: {
+    flex: 1,
+  },
+  exerciseName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  exerciseMeta: {
+    fontSize: 12,
+  },
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  checkmark: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  exerciseInstructions: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  equipmentTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  equipmentTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  equipmentText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  restDayContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 40,
   },
-  emptyStateText: {
-    fontSize: 18,
-    fontWeight: '500',
+  restDayEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  restDayTitle: {
+    fontSize: 24,
+    fontWeight: '700',
     marginBottom: 8,
-    textAlign: 'center',
   },
-  emptyStateSubtext: {
-    fontSize: 14,
+  restDayText: {
+    fontSize: 16,
     textAlign: 'center',
+    lineHeight: 24,
+  },
+  bottomPadding: {
+    height: 40,
   },
 });
 

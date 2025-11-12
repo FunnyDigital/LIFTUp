@@ -20,6 +20,7 @@ interface OnboardingData {
   
   // Workout Preferences
   workoutDaysPerWeek: number;
+  selectedWorkoutDays: string[];
   equipmentLevel: 'home' | 'basic_gym' | 'full_gym';
   location: string;
 }
@@ -64,5 +65,5 @@ const onboardingSlice = createSlice({
   },
 });
 
-export const { updateOnboardingData, setOnboardingStep, clearOnboardingData } = onboardingSlice.actions;
+export const { updateOnboardingData, setWorkoutPlan, setDietPlan, setOnboardingStep, clearOnboardingData } = onboardingSlice.actions;
 export default onboardingSlice.reducer;
