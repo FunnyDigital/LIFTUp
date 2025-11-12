@@ -237,15 +237,15 @@ const WorkoutsScreen: React.FC = () => {
                     isActiveDay
                       ? isSelected
                         ? { backgroundColor: theme.colors.white, borderColor: theme.colors.white }
-                        : { backgroundColor: theme.colors.gray700, borderColor: theme.colors.gray400 }
-                      : { backgroundColor: theme.colors.black, borderColor: theme.colors.gray700, opacity: 0.5 }
+                        : { backgroundColor: 'transparent', borderColor: theme.colors.gray500 }
+                      : { backgroundColor: theme.colors.black, borderColor: theme.colors.gray800, opacity: 0.4 }
                   ]}
                   onPress={() => isActiveDay && setSelectedDay(day)}
                   disabled={!isActiveDay}
                 >
                   <Text style={[
                     styles.dayText,
-                    { color: isSelected ? theme.colors.black : theme.colors.white }
+                    { color: isSelected && isActiveDay ? theme.colors.black : theme.colors.white }
                   ]}>
                     {daysShort[index]}
                   </Text>
@@ -353,7 +353,6 @@ const WorkoutsScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.restDayContainer}>
-            <Text style={[styles.restDayEmoji, { color: theme.colors.white }]}>😴</Text>
             <Text style={[styles.restDayTitle, { color: theme.colors.white }]}>
               Rest Day
             </Text>
@@ -402,7 +401,7 @@ const styles = StyleSheet.create({
   header: {
     marginTop: 20,
     marginBottom: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   title: {
     fontSize: 32,
@@ -414,7 +413,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   weekContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     marginBottom: 24,
   },
   daysRow: {
@@ -423,16 +422,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   dayButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   selectedDayLabel: {
     fontSize: 13,
@@ -440,7 +439,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   progressContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     marginBottom: 24,
   },
   progressHeader: {
@@ -471,7 +470,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   exercisesContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   exercisesTitle: {
     fontSize: 20,

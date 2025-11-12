@@ -154,7 +154,15 @@ const WorkoutPreferencesScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const daysOfWeek = [
+    { key: 'S', value: 'Sun' },
+    { key: 'M', value: 'Mon' },
+    { key: 'T', value: 'Tue' },
+    { key: 'W', value: 'Wed' },
+    { key: 'T', value: 'Thu' },
+    { key: 'F', value: 'Fri' },
+    { key: 'S', value: 'Sat' },
+  ];
 
   const WorkoutDaysSelector = () => (
     <View style={styles.workoutDaysContainer}>
@@ -187,18 +195,20 @@ const WorkoutPreferencesScreen: React.FC = () => {
       <View style={styles.daysOfWeekContainer}>
         <Text style={[styles.sectionTitle, { color: theme.colors.white, fontSize: 15, marginBottom: 8 }]}>Select Days</Text>
         <View style={styles.daysRow}>
-          {daysOfWeek.map(day => (
+          {daysOfWeek.map((day, index) => (
             <TouchableOpacity
-              key={day}
+              key={`${day.key}-${index}`}
               style={[
                 styles.dayToggle,
-                preferences.selectedWorkoutDays.includes(day) ? { backgroundColor: theme.colors.white } : { backgroundColor: theme.colors.gray700 }
+                preferences.selectedWorkoutDays.includes(day.value)
+                  ? { backgroundColor: theme.colors.white, borderColor: theme.colors.white }
+                  : { backgroundColor: 'transparent', borderColor: theme.colors.gray500 }
               ]}
               onPress={() => {
                 setPreferences(prev => {
-                  let selected = prev.selectedWorkoutDays.includes(day)
-                    ? prev.selectedWorkoutDays.filter(d => d !== day)
-                    : [...prev.selectedWorkoutDays, day];
+                  let selected = prev.selectedWorkoutDays.includes(day.value)
+                    ? prev.selectedWorkoutDays.filter(d => d !== day.value)
+                    : [...prev.selectedWorkoutDays, day.value];
                   // Limit selection to workoutDaysPerWeek
                   if (selected.length > prev.workoutDaysPerWeek) return prev;
                   return { ...prev, selectedWorkoutDays: selected };
@@ -206,7 +216,13 @@ const WorkoutPreferencesScreen: React.FC = () => {
                 if (errors.selectedWorkoutDays) setErrors(prev => ({ ...prev, selectedWorkoutDays: '' }));
               }}
             >
-              <Text style={{ color: preferences.selectedWorkoutDays.includes(day) ? theme.colors.black : theme.colors.white, fontWeight: '600', fontSize: 14 }}>{day}</Text>
+              <Text style={{ 
+                color: preferences.selectedWorkoutDays.includes(day.value) ? theme.colors.black : theme.colors.white, 
+                fontWeight: '600', 
+                fontSize: 14 
+              }}>
+                {day.key}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -355,21 +371,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
+  daysOfWeekContainer: {
+    marginTop: 16,
+  },
   daysRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginVertical: 8,
-    paddingHorizontal: 16,
   },
   dayToggle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    borderWidth: 2,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
-    marginHorizontal: 4,
   },
   equipmentSection: {
     marginBottom: 24,
