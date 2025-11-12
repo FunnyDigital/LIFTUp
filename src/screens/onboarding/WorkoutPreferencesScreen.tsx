@@ -72,6 +72,7 @@ const WorkoutPreferencesScreen: React.FC = () => {
     workoutDaysPerWeek: 3,
     equipmentLevel: null as EquipmentOption['id'] | null,
     location: 'Lagos, Nigeria',
+    selectedWorkoutDays: [] as string[],
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -87,20 +88,23 @@ const WorkoutPreferencesScreen: React.FC = () => {
       newErrors.location = 'Location is required';
     }
 
+    if (preferences.selectedWorkoutDays.length !== preferences.workoutDaysPerWeek) {
+      newErrors.selectedWorkoutDays = `Select exactly ${preferences.workoutDaysPerWeek} days`;
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleContinue = () => {
     if (!validateForm()) return;
-    
     // Save workout preferences to Redux
     dispatch(updateOnboardingData({
       workoutDaysPerWeek: preferences.workoutDaysPerWeek,
       equipmentLevel: preferences.equipmentLevel as 'home' | 'basic_gym' | 'full_gym',
       location: preferences.location.trim(),
+      selectedWorkoutDays: preferences.selectedWorkoutDays,
     }));
-    
     navigation.navigate('Summary');
   };
 
@@ -150,16 +154,12 @@ const WorkoutPreferencesScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
+  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
   const WorkoutDaysSelector = () => (
     <View style={styles.workoutDaysContainer}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.white }]}>
-        Workout Days Per Week
-      </Text>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.workoutDaysScroll}
-      >
+      <Text style={[styles.sectionTitle, { color: theme.colors.white }]}>Workout Days Per Week</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.workoutDaysScroll}>
         {workoutDaysOptions.map((option) => (
           <TouchableOpacity
             key={option.value}
@@ -170,26 +170,50 @@ const WorkoutPreferencesScreen: React.FC = () => {
                 backgroundColor: preferences.workoutDaysPerWeek === option.value ? theme.colors.white : 'transparent',
               }
             ]}
-            onPress={() => setPreferences(prev => ({ ...prev, workoutDaysPerWeek: option.value }))}
+            onPress={() => {
+              setPreferences(prev => ({ ...prev, workoutDaysPerWeek: option.value, selectedWorkoutDays: [] }));
+              if (errors.selectedWorkoutDays) setErrors(prev => ({ ...prev, selectedWorkoutDays: '' }));
+            }}
           >
-            <Text style={[
-              styles.workoutDayLabel,
-              { 
-                color: preferences.workoutDaysPerWeek === option.value ? theme.colors.black : theme.colors.white,
-                fontWeight: preferences.workoutDaysPerWeek === option.value ? '600' : '500',
-              }
-            ]}>
+            <Text style={[styles.workoutDayLabel, { color: preferences.workoutDaysPerWeek === option.value ? theme.colors.black : theme.colors.white, fontWeight: preferences.workoutDaysPerWeek === option.value ? '600' : '500' }]}>
               {option.label}
             </Text>
-            <Text style={[
-              styles.workoutDayDescription,
-              { color: preferences.workoutDaysPerWeek === option.value ? theme.colors.gray700 : theme.colors.gray400 }
-            ]}>
+            <Text style={[styles.workoutDayDescription, { color: preferences.workoutDaysPerWeek === option.value ? theme.colors.gray700 : theme.colors.gray400 }]}>
               {option.description}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
+      <View style={styles.daysOfWeekContainer}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.white, fontSize: 15, marginBottom: 8 }]}>Select Days</Text>
+        <View style={styles.daysRow}>
+          {daysOfWeek.map(day => (
+            <TouchableOpacity
+              key={day}
+              style={[
+                styles.dayToggle,
+                preferences.selectedWorkoutDays.includes(day) ? { backgroundColor: theme.colors.white } : { backgroundColor: theme.colors.gray700 }
+              ]}
+              onPress={() => {
+                setPreferences(prev => {
+                  let selected = prev.selectedWorkoutDays.includes(day)
+                    ? prev.selectedWorkoutDays.filter(d => d !== day)
+                    : [...prev.selectedWorkoutDays, day];
+                  // Limit selection to workoutDaysPerWeek
+                  if (selected.length > prev.workoutDaysPerWeek) return prev;
+                  return { ...prev, selectedWorkoutDays: selected };
+                });
+                if (errors.selectedWorkoutDays) setErrors(prev => ({ ...prev, selectedWorkoutDays: '' }));
+              }}
+            >
+              <Text style={{ color: preferences.selectedWorkoutDays.includes(day) ? theme.colors.black : theme.colors.white, fontWeight: '600', fontSize: 14 }}>{day}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {errors.selectedWorkoutDays && (
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.selectedWorkoutDays}</Text>
+        )}
+      </View>
     </View>
   );
 
@@ -330,6 +354,22 @@ const styles = StyleSheet.create({
   workoutDayDescription: {
     fontSize: 12,
     textAlign: 'center',
+  },
+  daysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 8,
+    paddingHorizontal: 16,
+  },
+  dayToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    marginHorizontal: 4,
   },
   equipmentSection: {
     marginBottom: 24,

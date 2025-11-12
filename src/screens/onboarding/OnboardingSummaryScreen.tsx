@@ -89,6 +89,7 @@ const OnboardingSummaryScreen: React.FC = () => {
         fitnessGoal: onboardingData.fitnessGoal || 'weight_maintenance',
         location: onboardingData.location || 'Nigeria',
         workoutDaysPerWeek: onboardingData.workoutDaysPerWeek || 3,
+  selectedWorkoutDays: onboardingData.selectedWorkoutDays || onboardingData.preferences?.selectedWorkoutDays || [],
         preferredUnits: 'metric',
       };
       
@@ -98,13 +99,14 @@ const OnboardingSummaryScreen: React.FC = () => {
       // Save to Firestore if user is logged in
       if (user?.id) {
         await authService.updateUserProfile(user.id, completeProfile);
-        // Save plan duration and calorie goal as top-level fields
+        // Save plan duration, calorie goal, and selectedWorkoutDays as top-level fields
         const { doc, updateDoc } = await import('firebase/firestore');
         const { db } = await import('@/services/firebase');
         const userRef = doc(db, 'users', user.id);
         await updateDoc(userRef, {
           planDuration: estimatedTimeToGoal,
           calorieGoal: workoutGenerationService.calculateDailyCalories(completeProfile),
+          selectedWorkoutDays: completeProfile.selectedWorkoutDays,
         });
       }
       
