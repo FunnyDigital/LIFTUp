@@ -83,8 +83,8 @@ const FitnessGoalsScreen: React.FC = () => {
 
   const handleContinue = () => {
     if (!selectedGoal) return;
-    // TODO: Save to Redux store
-    navigation.navigate('ActivityLevel');
+    dispatch(updateOnboardingData({ fitnessGoal: selectedGoal }));
+    navigation.navigate('WorkoutPreferences');
   };
 
   const GoalCard = ({ goal }: { goal: GoalOption }) => (

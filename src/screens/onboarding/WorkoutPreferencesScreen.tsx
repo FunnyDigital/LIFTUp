@@ -208,8 +208,8 @@ const WorkoutPreferencesScreen: React.FC = () => {
           </TouchableOpacity>
           
           <ProgressIndicator
-            currentStep={6}
-            totalSteps={7}
+            currentStep={5}
+            totalSteps={6}
             style={styles.progressIndicator}
           />
         </View>

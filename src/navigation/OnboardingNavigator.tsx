@@ -24,7 +24,6 @@ const OnboardingNavigator: React.FC = () => {
       <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} />
       <Stack.Screen name="BodyMetrics" component={BodyMetricsScreen} />
       <Stack.Screen name="FitnessGoals" component={FitnessGoalsScreen} />
-      <Stack.Screen name="ActivityLevel" component={ActivityLevelScreen} />
       <Stack.Screen name="WorkoutPreferences" component={WorkoutPreferencesScreen} />
       <Stack.Screen name="Summary" component={OnboardingSummaryScreen} />
     </Stack.Navigator>

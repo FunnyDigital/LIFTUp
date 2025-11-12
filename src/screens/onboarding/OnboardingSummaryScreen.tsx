@@ -42,7 +42,7 @@ const OnboardingSummaryScreen: React.FC = () => {
     height: onboardingData.height ? `${onboardingData.height} cm` : 'Not set',
     weight: onboardingData.weight ? `${onboardingData.weight} kg` : 'Not set',
     goal: onboardingData.fitnessGoal ? onboardingData.fitnessGoal.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set',
-    activityLevel: onboardingData.activityLevel ? onboardingData.activityLevel.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set',
+  // activityLevel removed
     workoutDays: onboardingData.workoutDaysPerWeek || 0,
     equipment: onboardingData.equipmentLevel ? onboardingData.equipmentLevel.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set',
     location: onboardingData.location || 'Nigeria',
@@ -56,20 +56,24 @@ const OnboardingSummaryScreen: React.FC = () => {
     sex: onboardingData.sex || 'male',
     height: onboardingData.height || 0,
     weight: onboardingData.weight || 0,
-    activityLevel: onboardingData.activityLevel || 'moderate',
+  activityLevel: onboardingData.activityLevel || 'moderate',
     fitnessGoal: onboardingData.fitnessGoal || 'weight_maintenance',
     location: onboardingData.location || 'Nigeria',
     workoutDaysPerWeek: onboardingData.workoutDaysPerWeek || 3,
     preferredUnits: 'metric',
   };
   
-  const estimatedTimeToGoal = profile.fitnessGoal && profile.activityLevel && profile.workoutDaysPerWeek
+  const estimatedTimeToGoal = profile.fitnessGoal && profile.workoutDaysPerWeek
     ? workoutGenerationService.estimateTimeToGoal(profile as UserProfile)
     : '8-12 weeks';
-    
-  const weeklyCalories = profile.weight && profile.height && profile.age
+
+  const dailyCalories = profile.weight && profile.height && profile.age
     ? `${workoutGenerationService.calculateDailyCalories(profile as UserProfile).toLocaleString()} kcal`
     : '2,000 kcal';
+
+  // Generate workout and diet plans
+  const workoutPlan = workoutGenerationService.generateWorkoutsForUser(profile as UserProfile);
+  // TODO: Generate diet plan using similar logic or a dietService
 
   const handleComplete = async () => {
     try {
@@ -94,6 +98,14 @@ const OnboardingSummaryScreen: React.FC = () => {
       // Save to Firestore if user is logged in
       if (user?.id) {
         await authService.updateUserProfile(user.id, completeProfile);
+        // Save plan duration and calorie goal as top-level fields
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const { db } = await import('@/services/firebase');
+        const userRef = doc(db, 'users', user.id);
+        await updateDoc(userRef, {
+          planDuration: estimatedTimeToGoal,
+          calorieGoal: workoutGenerationService.calculateDailyCalories(completeProfile),
+        });
       }
       
       // Clear onboarding data
@@ -152,7 +164,7 @@ const OnboardingSummaryScreen: React.FC = () => {
         
         <View style={styles.estimateItem}>
           <Text style={[styles.estimateValue, { color: theme.colors.white }]}>
-            {weeklyCalories}
+            {dailyCalories}
           </Text>
           <Text style={[styles.estimateLabel, { color: theme.colors.gray300 }]}>
             Daily calories target
@@ -216,11 +228,7 @@ const OnboardingSummaryScreen: React.FC = () => {
               value={displayData.goal}
             />
             
-            <SummaryItem
-              icon="⚡"
-              label="Activity Level"
-              value={displayData.activityLevel}
-            />
+
             
             <SummaryItem
               icon="📅"
@@ -240,7 +248,20 @@ const OnboardingSummaryScreen: React.FC = () => {
               value={displayData.location}
             />
 
-            <GoalEstimate />
+            <View style={[styles.goalEstimateCard, { backgroundColor: theme.colors.gray800 }]}>
+              <Text style={[styles.goalEstimateTitle, { color: theme.colors.white }]}>🎯 Your Personalized Plan</Text>
+              <View style={styles.estimateRow}>
+                <View style={styles.estimateItem}>
+                  <Text style={[styles.estimateValue, { color: theme.colors.white }]}>{estimatedTimeToGoal}</Text>
+                  <Text style={[styles.estimateLabel, { color: theme.colors.gray300 }]}>Estimated time to goal</Text>
+                </View>
+                <View style={styles.estimateItem}>
+                  <Text style={[styles.estimateValue, { color: theme.colors.white }]}>{dailyCalories}</Text>
+                  <Text style={[styles.estimateLabel, { color: theme.colors.gray300 }]}>Daily calories target</Text>
+                </View>
+              </View>
+              <Text style={[styles.goalDisclaimer, { color: theme.colors.gray400 }]}>* Estimates based on your inputs and Nigerian lifestyle factors</Text>
+            </View>
 
             <View style={styles.nextStepsCard}>
               <Text style={[styles.nextStepsTitle, { color: theme.colors.white }]}>

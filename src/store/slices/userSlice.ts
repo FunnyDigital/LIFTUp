@@ -4,11 +4,15 @@ import { UserProfile } from '@/types';
 interface UserState {
   profile: UserProfile | null;
   isProfileComplete: boolean;
+  workoutPlan?: any;
+  dietPlan?: any;
 }
 
 const initialState: UserState = {
   profile: null,
   isProfileComplete: false,
+  workoutPlan: null,
+  dietPlan: null,
 };
 
 const userSlice = createSlice({
@@ -16,8 +20,17 @@ const userSlice = createSlice({
   initialState,
   reducers: {
     setProfile: (state, action: PayloadAction<UserProfile>) => {
-      state.profile = action.payload;
-      state.isProfileComplete = true;
+      return {
+        ...state,
+        profile: action.payload,
+        isProfileComplete: true,
+      };
+    },
+    setWorkoutPlan: (state, action: PayloadAction<any>) => {
+      state.workoutPlan = action.payload;
+    },
+    setDietPlan: (state, action: PayloadAction<any>) => {
+      state.dietPlan = action.payload;
     },
     updateProfile: (state, action: PayloadAction<Partial<UserProfile>>) => {
       if (state.profile) {

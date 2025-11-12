@@ -20,6 +20,7 @@ export interface UserProfile {
   fitnessGoal: FitnessGoal;
   location: string;
   workoutDaysPerWeek: number;
+  selectedWorkoutDays: string[];
   preferredUnits: 'metric' | 'imperial';
 }
 
@@ -248,7 +249,6 @@ export type OnboardingStackParamList = {
   PersonalInfo: undefined;
   BodyMetrics: undefined;
   FitnessGoals: undefined;
-  ActivityLevel: undefined;
   WorkoutPreferences: undefined;
   Summary: undefined;
 };
@@ -290,6 +290,7 @@ export interface OnboardingData {
     fitnessGoal: FitnessGoal;
     activityLevel: UserProfile['activityLevel'];
     workoutDaysPerWeek: number;
+    selectedWorkoutDays: string[];
     location: string;
     preferredUnits: 'metric' | 'imperial';
   };

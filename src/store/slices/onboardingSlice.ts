@@ -15,8 +15,8 @@ interface OnboardingData {
   // Fitness Goals
   fitnessGoal: FitnessGoal;
   
-  // Activity Level
-  activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  // Activity Level (optional, default to 'moderate')
+  activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
   
   // Workout Preferences
   workoutDaysPerWeek: number;
@@ -27,11 +27,15 @@ interface OnboardingData {
 interface OnboardingState {
   data: Partial<OnboardingData>;
   currentStep: number;
+  workoutPlan?: any;
+  dietPlan?: any;
 }
 
 const initialState: OnboardingState = {
   data: {},
   currentStep: 0,
+  workoutPlan: null,
+  dietPlan: null,
 };
 
 const onboardingSlice = createSlice({
@@ -40,6 +44,15 @@ const onboardingSlice = createSlice({
   reducers: {
     updateOnboardingData: (state, action: PayloadAction<Partial<OnboardingData>>) => {
       state.data = { ...state.data, ...action.payload };
+      if (!state.data.activityLevel) {
+        state.data.activityLevel = 'moderate';
+      }
+    },
+    setWorkoutPlan: (state, action: PayloadAction<any>) => {
+      state.workoutPlan = action.payload;
+    },
+    setDietPlan: (state, action: PayloadAction<any>) => {
+      state.dietPlan = action.payload;
     },
     setOnboardingStep: (state, action: PayloadAction<number>) => {
       state.currentStep = action.payload;
