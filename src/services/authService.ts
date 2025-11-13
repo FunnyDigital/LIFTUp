@@ -100,19 +100,39 @@ class AuthService {
     
     if (userDoc.exists()) {
       const userData = userDoc.data();
+      
+      // Helper function to convert Firestore Timestamp to ISO string
+      const toISOString = (timestamp: any): string => {
+        if (!timestamp) return '';
+        if (typeof timestamp === 'string') return timestamp;
+        if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+          return timestamp.toDate().toISOString();
+        }
+        return '';
+      };
+      
+      // Convert all subscription timestamps to ISO strings
+      const subscription = userData.subscription ? {
+        plan: userData.subscription.plan || 'monthly',
+        amount: userData.subscription.amount || 0,
+        status: userData.subscription.status || 'inactive',
+        paystackReference: userData.subscription.paystackReference || '',
+        startDate: toISOString(userData.subscription.startDate),
+        endDate: toISOString(userData.subscription.endDate),
+        updatedAt: toISOString(userData.subscription.updatedAt),
+        currentPeriodStart: toISOString(userData.subscription.currentPeriodStart),
+        currentPeriodEnd: toISOString(userData.subscription.currentPeriodEnd),
+      } : undefined;
+      
       // Convert Firestore Timestamp to ISO string for all date fields
       return {
         id: firebaseUser.uid,
         email: firebaseUser.email || '',
         phoneNumber: firebaseUser.phoneNumber || undefined,
         profile: userData.profile || {},
-        subscription: {
-          ...userData.subscription,
-          currentPeriodStart: userData.subscription?.currentPeriodStart?.toDate?.() ? userData.subscription.currentPeriodStart.toDate().toISOString() : '',
-          currentPeriodEnd: userData.subscription?.currentPeriodEnd?.toDate?.() ? userData.subscription.currentPeriodEnd.toDate().toISOString() : '',
-        },
-        createdAt: userData.createdAt?.toDate?.() ? userData.createdAt.toDate().toISOString() : '',
-        updatedAt: userData.updatedAt?.toDate?.() ? userData.updatedAt.toDate().toISOString() : '',
+        subscription,
+        createdAt: toISOString(userData.createdAt),
+        updatedAt: toISOString(userData.updatedAt),
       } as User;
     } else {
       // User document doesn't exist, create it
