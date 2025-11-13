@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useTheme } from '@/constants/theme';
@@ -36,6 +37,9 @@ const WorkoutsScreen: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [weeklyPlan, setWeeklyPlan] = useState<DailyWorkout[]>([]);
   const [completedExercises, setCompletedExercises] = useState<{ [key: string]: boolean }>({});
+  const [completedDays, setCompletedDays] = useState<{ [key: string]: boolean }>({});
+  const [showCongrats, setShowCongrats] = useState(false);
+  const [justCompletedWorkout, setJustCompletedWorkout] = useState(false);
   
   // Get user profile and auth for personalization
   const userProfile = useSelector((state: RootState) => state.user.profile);
@@ -54,6 +58,46 @@ const WorkoutsScreen: React.FC = () => {
       loadProgressForDay(selectedDay);
     }
   }, [selectedDay, userId]);
+
+  useEffect(() => {
+    // Load completed days when plan is ready
+    if (userId && weeklyPlan.length > 0) {
+      loadCompletedDaysForWeek();
+    }
+  }, [userId, weeklyPlan]);
+
+  // Get current day of week
+  const getCurrentDayOfWeek = () => {
+    const today = new Date();
+    const dayIndex = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    return daysOfWeek[dayIndex];
+  };
+
+  // Load all completed days for the week
+  const loadCompletedDaysForWeek = async () => {
+    if (!userId) return;
+    
+    try {
+      const today = new Date();
+      const completedDaysMap: { [key: string]: boolean } = {};
+      
+      for (const day of daysOfWeek) {
+        const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}_${day}`;
+        const progress = await userDataService.loadWorkoutProgress(userId, dateStr);
+        
+        // Check if all exercises for this day are completed
+        const workout = weeklyPlan.find(plan => plan.day === day);
+        if (workout) {
+          const allCompleted = workout.exercises.every(ex => progress[ex.id]);
+          completedDaysMap[day] = allCompleted;
+        }
+      }
+      
+      setCompletedDays(completedDaysMap);
+    } catch (error) {
+      console.error('Error loading completed days:', error);
+    }
+  };
 
   const loadProgressForDay = async (day: string) => {
     if (!userId) return;
@@ -96,10 +140,9 @@ const WorkoutsScreen: React.FC = () => {
       
       setWeeklyPlan(plan);
       
-      // Set first selected day as default
-      if (plan.length > 0) {
-        setSelectedDay(plan[0].day);
-      }
+      // Set current day as default, fallback to first workout day if current day has no workout
+      const currentDay = getCurrentDayOfWeek();
+      setSelectedDay(currentDay);
       
       setLoading(false);
     } catch (error) {
@@ -183,6 +226,22 @@ const WorkoutsScreen: React.FC = () => {
     
     setCompletedExercises(newCompletedState);
     
+    // Check if workout is now complete
+    const currentWorkout = getCurrentDayWorkout();
+    if (currentWorkout) {
+      const allCompleted = currentWorkout.exercises.every(ex => newCompletedState[ex.id]);
+      const wasCompleted = completedDays[selectedDay];
+      
+      // Update completed days
+      if (allCompleted && !wasCompleted) {
+        setCompletedDays({ ...completedDays, [selectedDay]: true });
+        setJustCompletedWorkout(true);
+        setShowCongrats(true);
+      } else if (!allCompleted && wasCompleted) {
+        setCompletedDays({ ...completedDays, [selectedDay]: false });
+      }
+    }
+    
     // Save to Firebase
     if (userId && selectedDay) {
       try {
@@ -211,6 +270,38 @@ const WorkoutsScreen: React.FC = () => {
 
   const isWorkoutDay = (day: string) => {
     return weeklyPlan.some(plan => plan.day === day);
+  };
+
+  const calculateTimeToGoal = () => {
+    if (!userProfile) return 'calculating...';
+    
+    const goal = userProfile.fitnessGoal;
+    const daysPerWeek = userProfile.workoutDaysPerWeek || 3;
+    
+    // Estimate based on typical fitness goals
+    let weeksToGoal = 12; // default 3 months
+    
+    if (goal === 'lose_belly_fat') {
+      weeksToGoal = 12; // 3 months for visible fat loss
+    } else if (goal === 'build_muscle' || goal === 'build_lean_mass') {
+      weeksToGoal = 16; // 4 months for noticeable muscle gain
+    } else if (goal === 'strength_training') {
+      weeksToGoal = 8; // 2 months for strength gains
+    }
+    
+    // Calculate how many weeks of workouts completed
+    const completedWorkouts = Object.values(completedDays).filter(Boolean).length;
+    const weeksCompleted = Math.floor(completedWorkouts / daysPerWeek);
+    const remainingWeeks = Math.max(0, weeksToGoal - weeksCompleted);
+    
+    if (remainingWeeks === 0) {
+      return 'Goal achieved! Keep maintaining! 🎉';
+    } else if (remainingWeeks <= 4) {
+      return `${remainingWeeks} weeks left`;
+    } else {
+      const months = Math.ceil(remainingWeeks / 4);
+      return `${months} ${months === 1 ? 'month' : 'months'} left`;
+    }
   };
 
   if (loading) {
@@ -263,6 +354,7 @@ const WorkoutsScreen: React.FC = () => {
             {daysOfWeek.map((day, index) => {
               const isSelected = selectedDay === day;
               const isActiveDay = isWorkoutDay(day);
+              const isDayCompleted = completedDays[day];
               
               return (
                 <TouchableOpacity
@@ -272,24 +364,33 @@ const WorkoutsScreen: React.FC = () => {
                     isActiveDay
                       ? isSelected
                         ? { backgroundColor: theme.colors.white, borderColor: theme.colors.white }
-                        : { backgroundColor: 'transparent', borderColor: theme.colors.gray500 }
-                      : { backgroundColor: theme.colors.black, borderColor: theme.colors.gray800, opacity: 0.4 }
+                        : isDayCompleted
+                          ? { backgroundColor: theme.colors.gray700, borderColor: theme.colors.gray600, opacity: 0.5 }
+                          : { backgroundColor: 'transparent', borderColor: theme.colors.gray500 }
+                      : isSelected
+                        ? { backgroundColor: theme.colors.gray700, borderColor: theme.colors.gray600 }
+                        : { backgroundColor: theme.colors.black, borderColor: theme.colors.gray800, opacity: 0.5 }
                   ]}
-                  onPress={() => isActiveDay && setSelectedDay(day)}
-                  disabled={!isActiveDay}
+                  onPress={() => setSelectedDay(day)}
                 >
-                  <Text style={[
-                    styles.dayText,
-                    { color: isSelected && isActiveDay ? theme.colors.black : theme.colors.white }
-                  ]}>
-                    {daysShort[index]}
-                  </Text>
+                  <View style={styles.dayButtonContent}>
+                    <Text style={[
+                      styles.dayText,
+                      { color: isSelected && isActiveDay ? theme.colors.black : theme.colors.white },
+                      !isActiveDay && { opacity: 0.6 }
+                    ]}>
+                      {daysShort[index]}
+                    </Text>
+                    {isDayCompleted && isActiveDay && (
+                      <View style={styles.strikethrough} />
+                    )}
+                  </View>
                 </TouchableOpacity>
               );
             })}
           </View>
           <Text style={[styles.selectedDayLabel, { color: theme.colors.gray400 }]}>
-            {selectedDay} Workout
+            {selectedDay} {isWorkoutDay(selectedDay) ? 'Workout' : 'Rest Day'}
           </Text>
         </View>
 
@@ -388,17 +489,59 @@ const WorkoutsScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.restDayContainer}>
+            <Text style={[styles.restDayEmoji]}>😴</Text>
             <Text style={[styles.restDayTitle, { color: theme.colors.white }]}>
               Rest Day
             </Text>
             <Text style={[styles.restDayText, { color: theme.colors.gray400 }]}>
-              No workout scheduled for {selectedDay}. Recovery is important!
+              No workout scheduled for {selectedDay}. Recovery is just as important as training!
             </Text>
           </View>
         )}
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Congratulations Modal */}
+      <Modal
+        visible={showCongrats}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCongrats(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.gray900 }]}>
+            <Text style={styles.congratsEmoji}>🎉</Text>
+            <Text style={[styles.congratsTitle, { color: theme.colors.white }]}>
+              Workout Complete!
+            </Text>
+            <Text style={[styles.congratsMessage, { color: theme.colors.gray300 }]}>
+              Great job finishing your {selectedDay} workout!
+            </Text>
+            
+            <View style={[styles.goalContainer, { backgroundColor: theme.colors.gray800 }]}>
+              <Text style={[styles.goalLabel, { color: theme.colors.gray400 }]}>
+                Estimated Time to Goal
+              </Text>
+              <Text style={[styles.goalTime, { color: theme.colors.white }]}>
+                {calculateTimeToGoal()}
+              </Text>
+              <Text style={[styles.goalSubtext, { color: theme.colors.gray400 }]}>
+                Keep pushing! Consistency is key 💪
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.closeButton, { backgroundColor: theme.colors.white }]}
+              onPress={() => setShowCongrats(false)}
+            >
+              <Text style={[styles.closeButtonText, { color: theme.colors.black }]}>
+                Continue
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 };
@@ -464,9 +607,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dayButtonContent: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dayText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  strikethrough: {
+    position: 'absolute',
+    width: 20,
+    height: 2,
+    backgroundColor: '#fff',
+    transform: [{ rotate: '-45deg' }],
   },
   selectedDayLabel: {
     fontSize: 13,
@@ -599,6 +754,69 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+  },
+  congratsEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  congratsTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  congratsMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  goalContainer: {
+    width: '100%',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  goalLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  goalTime: {
+    fontSize: 32,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  goalSubtext: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  closeButton: {
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 
