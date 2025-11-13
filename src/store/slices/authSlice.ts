@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { User } from '@/types';
 import { authService } from '@/services/authService';
+import { setProfile } from './userSlice';
 
 interface AuthState {
   user: User | null;
@@ -21,8 +22,12 @@ const initialState: AuthState = {
 // Async thunks
 export const signInWithEmail = createAsyncThunk(
   'auth/signInWithEmail',
-  async ({ email, password }: { email: string; password: string }) => {
+  async ({ email, password }: { email: string; password: string }, { dispatch }) => {
     const response = await authService.signInWithEmail(email, password);
+    // Sync profile to userSlice if user has completed onboarding
+    if (response && response.profile && response.profile.fitnessGoal) {
+      dispatch(setProfile(response.profile));
+    }
     return response;
   }
 );
@@ -37,8 +42,12 @@ export const signUpWithEmail = createAsyncThunk(
 
 export const signInWithPhone = createAsyncThunk(
   'auth/signInWithPhone',
-  async ({ phoneNumber, otp }: { phoneNumber: string; otp: string }) => {
+  async ({ phoneNumber, otp }: { phoneNumber: string; otp: string }, { dispatch }) => {
     const response = await authService.signInWithPhone(phoneNumber, otp);
+    // Sync profile to userSlice if user has completed onboarding
+    if (response && response.profile && response.profile.fitnessGoal) {
+      dispatch(setProfile(response.profile));
+    }
     return response;
   }
 );
@@ -52,8 +61,12 @@ export const signOut = createAsyncThunk(
 
 export const checkAuthState = createAsyncThunk(
   'auth/checkAuthState',
-  async () => {
+  async (_, { dispatch }) => {
     const user = await authService.getCurrentUser();
+    // Sync profile to userSlice if user has completed onboarding
+    if (user && user.profile && user.profile.fitnessGoal) {
+      dispatch(setProfile(user.profile));
+    }
     return user;
   }
 );

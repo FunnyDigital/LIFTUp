@@ -210,7 +210,7 @@ const WorkoutsScreen: React.FC = () => {
   const progress = calculateProgress();
 
   return (
-    <Screen>
+    <Screen padding={false}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>

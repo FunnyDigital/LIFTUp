@@ -373,7 +373,7 @@ const DietScreen: React.FC = () => {
 
   if (loading || !currentDayPlan) {
     return (
-      <Screen>
+      <Screen padding={false}>
         <View style={[styles.loadingContainer, { backgroundColor: theme.colors.black }]}>
           <ActivityIndicator size="large" color={theme.colors.white} />
           <Text style={[styles.loadingText, { color: theme.colors.gray400 }]}>
@@ -389,7 +389,7 @@ const DietScreen: React.FC = () => {
   };
 
   return (
-    <Screen>
+    <Screen padding={false}>
       <ScrollView 
         style={styles.container}
         showsVerticalScrollIndicator={false}
