@@ -11,6 +11,7 @@ import { useSelector } from 'react-redux';
 import { useTheme } from '@/constants/theme';
 import Screen from '@/components/ui/Screen';
 import { workoutGenerationService } from '@/services/workoutGenerationService';
+import { userDataService } from '@/services/userDataService';
 import { RootState } from '@/store';
 
 interface Exercise {
@@ -36,8 +37,9 @@ const WorkoutsScreen: React.FC = () => {
   const [weeklyPlan, setWeeklyPlan] = useState<DailyWorkout[]>([]);
   const [completedExercises, setCompletedExercises] = useState<{ [key: string]: boolean }>({});
   
-  // Get user profile for personalization
+  // Get user profile and auth for personalization
   const userProfile = useSelector((state: RootState) => state.user.profile);
+  const userId = useSelector((state: RootState) => state.auth.user?.id);
 
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const daysShort = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -45,6 +47,26 @@ const WorkoutsScreen: React.FC = () => {
   useEffect(() => {
     generatePersonalizedPlan();
   }, [userProfile]);
+
+  useEffect(() => {
+    // Load progress when selected day changes
+    if (userId && selectedDay) {
+      loadProgressForDay(selectedDay);
+    }
+  }, [selectedDay, userId]);
+
+  const loadProgressForDay = async (day: string) => {
+    if (!userId) return;
+    
+    try {
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}_${day}`;
+      const progress = await userDataService.loadWorkoutProgress(userId, dateStr);
+      setCompletedExercises(progress);
+    } catch (error) {
+      console.error('Error loading workout progress:', error);
+    }
+  };
 
   const generatePersonalizedPlan = () => {
     if (!userProfile) {
@@ -153,11 +175,24 @@ const WorkoutsScreen: React.FC = () => {
     }));
   };
 
-  const toggleExerciseComplete = (exerciseId: string) => {
-    setCompletedExercises(prev => ({
-      ...prev,
-      [exerciseId]: !prev[exerciseId]
-    }));
+  const toggleExerciseComplete = async (exerciseId: string) => {
+    const newCompletedState = {
+      ...completedExercises,
+      [exerciseId]: !completedExercises[exerciseId]
+    };
+    
+    setCompletedExercises(newCompletedState);
+    
+    // Save to Firebase
+    if (userId && selectedDay) {
+      try {
+        const today = new Date();
+        const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}_${selectedDay}`;
+        await userDataService.saveWorkoutProgress(userId, dateStr, newCompletedState);
+      } catch (error) {
+        console.error('Error saving workout progress:', error);
+      }
+    }
   };
 
   const getCurrentDayWorkout = () => {

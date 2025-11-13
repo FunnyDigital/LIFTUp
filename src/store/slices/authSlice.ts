@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { User } from '@/types';
 import { authService } from '@/services/authService';
-import { setProfile } from './userSlice';
+import { userDataService } from '@/services/userDataService';
+import { setProfile, setWorkoutPlan, setDietPlan } from './userSlice';
 
 interface AuthState {
   user: User | null;
@@ -24,9 +25,20 @@ export const signInWithEmail = createAsyncThunk(
   'auth/signInWithEmail',
   async ({ email, password }: { email: string; password: string }, { dispatch }) => {
     const response = await authService.signInWithEmail(email, password);
-    // Sync profile to userSlice if user has completed onboarding
-    if (response && response.profile && response.profile.fitnessGoal) {
-      dispatch(setProfile(response.profile));
+    // Sync all user data from Firebase to Redux
+    if (response && response.id) {
+      const userData = await userDataService.loadUserData(response.id);
+      if (userData) {
+        if (userData.profile && userData.profile.fitnessGoal) {
+          dispatch(setProfile(userData.profile));
+        }
+        if (userData.workoutPlan) {
+          dispatch(setWorkoutPlan(userData.workoutPlan));
+        }
+        if (userData.dietPlan) {
+          dispatch(setDietPlan(userData.dietPlan));
+        }
+      }
     }
     return response;
   }
@@ -44,9 +56,20 @@ export const signInWithPhone = createAsyncThunk(
   'auth/signInWithPhone',
   async ({ phoneNumber, otp }: { phoneNumber: string; otp: string }, { dispatch }) => {
     const response = await authService.signInWithPhone(phoneNumber, otp);
-    // Sync profile to userSlice if user has completed onboarding
-    if (response && response.profile && response.profile.fitnessGoal) {
-      dispatch(setProfile(response.profile));
+    // Sync all user data from Firebase to Redux
+    if (response && response.id) {
+      const userData = await userDataService.loadUserData(response.id);
+      if (userData) {
+        if (userData.profile && userData.profile.fitnessGoal) {
+          dispatch(setProfile(userData.profile));
+        }
+        if (userData.workoutPlan) {
+          dispatch(setWorkoutPlan(userData.workoutPlan));
+        }
+        if (userData.dietPlan) {
+          dispatch(setDietPlan(userData.dietPlan));
+        }
+      }
     }
     return response;
   }
@@ -63,9 +86,20 @@ export const checkAuthState = createAsyncThunk(
   'auth/checkAuthState',
   async (_, { dispatch }) => {
     const user = await authService.getCurrentUser();
-    // Sync profile to userSlice if user has completed onboarding
-    if (user && user.profile && user.profile.fitnessGoal) {
-      dispatch(setProfile(user.profile));
+    // Sync all user data from Firebase to Redux
+    if (user && user.id) {
+      const userData = await userDataService.loadUserData(user.id);
+      if (userData) {
+        if (userData.profile && userData.profile.fitnessGoal) {
+          dispatch(setProfile(userData.profile));
+        }
+        if (userData.workoutPlan) {
+          dispatch(setWorkoutPlan(userData.workoutPlan));
+        }
+        if (userData.dietPlan) {
+          dispatch(setDietPlan(userData.dietPlan));
+        }
+      }
     }
     return user;
   }

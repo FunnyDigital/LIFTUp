@@ -5,6 +5,7 @@ import workoutReducer from './slices/workoutSlice';
 import progressReducer from './slices/progressSlice';
 import subscriptionReducer from './slices/subscriptionSlice';
 import onboardingReducer from './slices/onboardingSlice';
+import { syncMiddleware } from './middleware/syncMiddleware';
 
 export const store = configureStore({
   reducer: {
@@ -22,7 +23,7 @@ export const store = configureStore({
         ignoredActionsPaths: ['meta.arg', 'payload.timestamp'],
         ignoredPaths: ['items.dates'],
       },
-    }),
+    }).concat(syncMiddleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

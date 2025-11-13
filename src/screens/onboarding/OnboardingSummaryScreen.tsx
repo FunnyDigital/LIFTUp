@@ -14,9 +14,10 @@ import { useTheme } from '@/constants/theme';
 import { OnboardingStackParamList, UserProfile } from '@/types';
 import { AppDispatch, RootState } from '@/store';
 import { setOnboardingComplete } from '@/store/slices/authSlice';
-import { setProfile } from '@/store/slices/userSlice';
+import { setProfile, setWorkoutPlan, setDietPlan } from '@/store/slices/userSlice';
 import { clearOnboardingData } from '@/store/slices/onboardingSlice';
 import { authService } from '@/services/authService';
+import { userDataService } from '@/services/userDataService';
 import { workoutGenerationService } from '@/services/workoutGenerationService';
 
 import Screen from '@/components/ui/Screen';
@@ -96,9 +97,17 @@ const OnboardingSummaryScreen: React.FC = () => {
       // Save to Redux
       dispatch(setProfile(completeProfile));
       
+      // Generate plans
+      const generatedWorkoutPlan = workoutGenerationService.generateWorkoutsForUser(completeProfile);
+      dispatch(setWorkoutPlan(generatedWorkoutPlan));
+      
       // Save to Firestore if user is logged in
       if (user?.id) {
         await authService.updateUserProfile(user.id, completeProfile);
+        
+        // Save workout and diet plans
+        await userDataService.saveWorkoutPlan(user.id, generatedWorkoutPlan);
+        
         // Save plan duration, calorie goal, and selectedWorkoutDays as top-level fields
         const { doc, updateDoc } = await import('firebase/firestore');
         const { db } = await import('@/services/firebase');
@@ -107,6 +116,7 @@ const OnboardingSummaryScreen: React.FC = () => {
           planDuration: estimatedTimeToGoal,
           calorieGoal: workoutGenerationService.calculateDailyCalories(completeProfile),
           selectedWorkoutDays: completeProfile.selectedWorkoutDays,
+          equipmentLevel: onboardingData.equipmentLevel,
         });
       }
       

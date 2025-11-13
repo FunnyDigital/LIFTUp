@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { UserProfile } from '@/types';
+import { userDataService } from '@/services/userDataService';
 
 interface UserState {
   profile: UserProfile | null;
