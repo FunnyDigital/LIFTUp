@@ -340,9 +340,16 @@ const WorkoutsScreen: React.FC = () => {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.white }]}>
-            Your Workout Plan
-          </Text>
+          <View style={styles.headerTop}>
+            <View style={styles.dumbbellIcon}>
+              <View style={[styles.dumbbellBar, { backgroundColor: theme.colors.white }]} />
+              <View style={[styles.dumbbellWeight, { backgroundColor: theme.colors.white }]} />
+              <View style={[styles.dumbbellWeightRight, { backgroundColor: theme.colors.white }]} />
+            </View>
+            <Text style={[styles.title, { color: theme.colors.white }]}>
+              Your Workout Plan
+            </Text>
+          </View>
           <Text style={[styles.subtitle, { color: theme.colors.gray400 }]}>
             {userProfile.fitnessGoal.replace(/_/g, ' ').charAt(0).toUpperCase() + userProfile.fitnessGoal.replace(/_/g, ' ').slice(1)} • {userProfile.workoutDaysPerWeek} days/week
           </Text>
@@ -581,10 +588,41 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingHorizontal: 16,
   },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  dumbbellIcon: {
+    width: 32,
+    height: 32,
+    marginRight: 12,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dumbbellBar: {
+    width: 20,
+    height: 3,
+    borderRadius: 2,
+  },
+  dumbbellWeight: {
+    position: 'absolute',
+    left: 0,
+    width: 8,
+    height: 12,
+    borderRadius: 2,
+  },
+  dumbbellWeightRight: {
+    position: 'absolute',
+    right: 0,
+    width: 8,
+    height: 12,
+    borderRadius: 2,
+  },
   title: {
     fontSize: 32,
     fontWeight: '700',
-    marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,

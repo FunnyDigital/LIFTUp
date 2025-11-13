@@ -22,32 +22,32 @@ const MainNavigator: React.FC = () => {
       case 'Workouts':
         // Dumbbell icon
         return (
-          <View style={{ width: iconSize, height: iconSize, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width: iconSize, height: iconSize, justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+            {/* Center bar */}
             <View style={{ 
-              width: 18, 
-              height: 4, 
+              width: 12, 
+              height: 3, 
               backgroundColor: iconColor,
               borderRadius: 2,
             }} />
+            {/* Left weight */}
             <View style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              width: iconSize,
               position: 'absolute',
-            }}>
-              <View style={{ 
-                width: 5, 
-                height: iconSize, 
-                backgroundColor: iconColor,
-                borderRadius: 2,
-              }} />
-              <View style={{ 
-                width: 5, 
-                height: iconSize, 
-                backgroundColor: iconColor,
-                borderRadius: 2,
-              }} />
-            </View>
+              left: 2,
+              width: 6, 
+              height: 14, 
+              backgroundColor: iconColor,
+              borderRadius: 2,
+            }} />
+            {/* Right weight */}
+            <View style={{ 
+              position: 'absolute',
+              right: 2,
+              width: 6, 
+              height: 14, 
+              backgroundColor: iconColor,
+              borderRadius: 2,
+            }} />
           </View>
         );
       case 'Diet':

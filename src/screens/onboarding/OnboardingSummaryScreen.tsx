@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useDispatch, useSelector } from 'react-redux';
+import { usePaystack } from 'react-native-paystack-webview';
 
 import { useTheme } from '@/constants/theme';
 import { OnboardingStackParamList, UserProfile } from '@/types';
@@ -19,6 +21,7 @@ import { clearOnboardingData } from '@/store/slices/onboardingSlice';
 import { authService } from '@/services/authService';
 import { userDataService } from '@/services/userDataService';
 import { workoutGenerationService } from '@/services/workoutGenerationService';
+import { paymentService } from '@/services/paymentService';
 
 import Screen from '@/components/ui/Screen';
 import Button from '@/components/ui/Button';
@@ -30,6 +33,8 @@ const OnboardingSummaryScreen: React.FC = () => {
   const navigation = useNavigation<OnboardingSummaryScreenNavigationProp>();
   const dispatch = useDispatch<AppDispatch>();
   const theme = useTheme();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { popup } = usePaystack();
 
   // Get collected onboarding data from Redux
   const onboardingData = useSelector((state: RootState) => state.onboarding.data);
@@ -76,7 +81,52 @@ const OnboardingSummaryScreen: React.FC = () => {
   const workoutPlan = workoutGenerationService.generateWorkoutsForUser(profile as UserProfile);
   // TODO: Generate diet plan using similar logic or a dietService
 
-  const handleComplete = async () => {
+  const handlePaymentSuccess = async (response: any) => {
+    try {
+      setIsProcessing(true);
+      console.log('Payment successful:', response);
+
+      if (!user?.id) {
+        throw new Error('User ID not found');
+      }
+
+      // Activate subscription
+      await paymentService.activateSubscription(
+        user.id,
+        'monthly',
+        response.reference || response.transactionRef?.reference || response.data?.reference
+      );
+
+      // Complete onboarding after successful payment
+      await completeOnboarding();
+
+      Alert.alert(
+        'Payment Successful! 🎉',
+        'Your subscription is now active. Welcome to LiftUp!',
+        [{ text: 'Get Started', onPress: () => {} }]
+      );
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      Alert.alert(
+        'Payment Processed',
+        'There was an issue activating your subscription. Please contact support.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePaymentCancel = () => {
+    console.log('Payment cancelled');
+    Alert.alert(
+      'Payment Cancelled',
+      'You can complete payment anytime from your profile.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const completeOnboarding = async () => {
     try {
       // Save complete user profile to Redux
       const completeProfile: UserProfile = {
@@ -132,6 +182,42 @@ const OnboardingSummaryScreen: React.FC = () => {
       // Still mark onboarding as complete even if Firestore save fails
       dispatch(setOnboardingComplete());
     }
+  };
+
+  const handleProceedToPayment = () => {
+    if (!user?.email) {
+      Alert.alert('Error', 'User email not found. Please try again.');
+      return;
+    }
+    
+    // Trigger Paystack payment using the hook
+    popup.checkout({
+      email: user.email,
+      amount: paymentService.getSubscriptionAmount('monthly'),
+      reference: `LIFT_${Date.now()}_${user.id}`,
+      currency: 'NGN',
+      channels: ['card', 'bank', 'ussd', 'bank_transfer'],
+      metadata: {
+        custom_fields: [
+          {
+            display_name: 'User ID',
+            variable_name: 'user_id',
+            value: user.id || ''
+          },
+          {
+            display_name: 'Plan',
+            variable_name: 'plan',
+            value: 'monthly'
+          }
+        ]
+      },
+      onSuccess: handlePaymentSuccess,
+      onCancel: handlePaymentCancel,
+      onError: (error) => {
+        console.error('Payment error:', error);
+        Alert.alert('Payment Error', 'There was an error processing your payment. Please try again.');
+      }
+    });
   };
 
   const SummaryItem = ({ 
@@ -275,6 +361,27 @@ const OnboardingSummaryScreen: React.FC = () => {
               <Text style={[styles.goalDisclaimer, { color: theme.colors.gray400 }]}>* Estimates based on your inputs and Nigerian lifestyle factors</Text>
             </View>
 
+            {/* Subscription Card */}
+            <View style={[styles.subscriptionCard, { backgroundColor: theme.colors.gray800, borderColor: theme.colors.white }]}>
+              <Text style={[styles.subscriptionTitle, { color: theme.colors.white }]}>
+                💳 Monthly Subscription
+              </Text>
+              <View style={styles.priceContainer}>
+                <Text style={[styles.currencySymbol, { color: theme.colors.gray300 }]}>₦</Text>
+                <Text style={[styles.priceAmount, { color: theme.colors.white }]}>1,000</Text>
+                <Text style={[styles.pricePeriod, { color: theme.colors.gray300 }]}>/month</Text>
+              </View>
+              <Text style={[styles.subscriptionDescription, { color: theme.colors.gray300 }]}>
+                Unlock your personalized workout and diet plans
+              </Text>
+              <View style={styles.featuresList}>
+                <Text style={[styles.featureItem, { color: theme.colors.gray200 }]}>✓ Personalized workout plans</Text>
+                <Text style={[styles.featureItem, { color: theme.colors.gray200 }]}>✓ Nigerian-tailored diet plans</Text>
+                <Text style={[styles.featureItem, { color: theme.colors.gray200 }]}>✓ Progress tracking</Text>
+                <Text style={[styles.featureItem, { color: theme.colors.gray200 }]}>✓ Expert fitness guidance</Text>
+              </View>
+            </View>
+
             <View style={styles.nextStepsCard}>
               <Text style={[styles.nextStepsTitle, { color: theme.colors.white }]}>
                 What's Next?
@@ -307,13 +414,14 @@ const OnboardingSummaryScreen: React.FC = () => {
         {/* Actions */}
         <View style={styles.actions}>
           <Button
-            title="Complete Setup"
-            onPress={handleComplete}
+            title={isProcessing ? "Processing..." : "Proceed to Payment"}
+            onPress={handleProceedToPayment}
             style={styles.completeButton}
+            disabled={isProcessing}
           />
           
           <Text style={[styles.welcomeText, { color: theme.colors.gray400 }]}>
-            Welcome to the LiftUp family! 💪🇳🇬
+            Secure payment via Paystack 🔒
           </Text>
         </View>
       </View>
@@ -452,6 +560,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  subscriptionCard: {
+    padding: 24,
+    borderRadius: 16,
+    marginTop: 16,
+    marginBottom: 32,
+    borderWidth: 2,
+    alignItems: 'center',
+  },
+  subscriptionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  currencySymbol: {
+    fontSize: 24,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  priceAmount: {
+    fontSize: 48,
+    fontWeight: '700',
+    lineHeight: 56,
+  },
+  pricePeriod: {
+    fontSize: 16,
+    marginTop: 8,
+    marginLeft: 4,
+  },
+  subscriptionDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  featuresList: {
+    width: '100%',
+    paddingHorizontal: 16,
+  },
+  featureItem: {
+    fontSize: 14,
+    marginBottom: 8,
+    lineHeight: 20,
   },
 });
 
