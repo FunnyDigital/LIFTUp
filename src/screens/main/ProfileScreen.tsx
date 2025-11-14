@@ -8,6 +8,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '@/constants/theme';
@@ -29,6 +30,7 @@ const ProfileScreen: React.FC = () => {
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -36,6 +38,7 @@ const ProfileScreen: React.FC = () => {
     weight: '',
     workoutDaysPerWeek: '',
     selectedWorkoutDays: [] as string[],
+    phoneNumber: '',
   });
 
   // Get real user data from Redux store
@@ -47,15 +50,16 @@ const ProfileScreen: React.FC = () => {
   }, [user?.id]);
 
   useEffect(() => {
-    if (userProfile && showEditModal) {
+    if (showEditModal) {
       setEditForm({
-        height: userProfile.height?.toString() || '',
-        weight: userProfile.weight?.toString() || '',
-        workoutDaysPerWeek: userProfile.workoutDaysPerWeek?.toString() || '',
-        selectedWorkoutDays: userProfile.selectedWorkoutDays || [],
+        height: userProfile?.height?.toString() || '',
+        weight: userProfile?.weight?.toString() || '',
+        workoutDaysPerWeek: userProfile?.workoutDaysPerWeek?.toString() || '',
+        selectedWorkoutDays: userProfile?.selectedWorkoutDays || [],
+        phoneNumber: user?.phoneNumber || '',
       });
     }
-  }, [userProfile, showEditModal]);
+  }, [userProfile, user, showEditModal]);
 
   const loadSubscriptionStatus = async () => {
     if (!user?.id) return;
@@ -86,6 +90,26 @@ const ProfileScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading subscription:', error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Reload subscription status
+      await loadSubscriptionStatus();
+      
+      // Reload user profile from Firebase
+      if (user?.id) {
+        const userData = await authService.getCurrentUser();
+        if (userData) {
+          dispatch(updateProfile(userData.profile));
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
   
@@ -138,12 +162,25 @@ const ProfileScreen: React.FC = () => {
     try {
       setIsLoading(true);
       
-      const updates: Partial<UserProfile> = {
-        ...userProfile!,
-        height: parseInt(editForm.height) || userProfile!.height,
-        weight: parseInt(editForm.weight) || userProfile!.weight,
-        workoutDaysPerWeek: parseInt(editForm.workoutDaysPerWeek) || userProfile!.workoutDaysPerWeek,
-        selectedWorkoutDays: editForm.selectedWorkoutDays.length > 0 ? editForm.selectedWorkoutDays : userProfile!.selectedWorkoutDays,
+      if (!userProfile) {
+        Alert.alert('Error', 'Profile data not found');
+        return;
+      }
+      
+      // Create a new object instead of spreading the readonly state
+      const updates: UserProfile = {
+        firstName: userProfile.firstName,
+        lastName: userProfile.lastName,
+        age: userProfile.age,
+        sex: userProfile.sex,
+        height: editForm.height ? parseInt(editForm.height) : userProfile.height,
+        weight: editForm.weight ? parseInt(editForm.weight) : userProfile.weight,
+        activityLevel: userProfile.activityLevel,
+        fitnessGoal: userProfile.fitnessGoal,
+        location: userProfile.location,
+        workoutDaysPerWeek: editForm.workoutDaysPerWeek ? parseInt(editForm.workoutDaysPerWeek) : userProfile.workoutDaysPerWeek,
+        selectedWorkoutDays: editForm.selectedWorkoutDays.length > 0 ? editForm.selectedWorkoutDays : userProfile.selectedWorkoutDays,
+        preferredUnits: userProfile.preferredUnits,
       };
 
       // Update Redux
@@ -152,10 +189,22 @@ const ProfileScreen: React.FC = () => {
       // Update Firebase
       if (user?.id) {
         await authService.updateUserProfile(user.id, updates);
+        
+        // Update phone number separately if changed
+        if (editForm.phoneNumber && editForm.phoneNumber !== user.phoneNumber) {
+          const { doc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('@/services/firebase');
+          const userRef = doc(db, 'users', user.id);
+          await updateDoc(userRef, {
+            phoneNumber: editForm.phoneNumber,
+            updatedAt: new Date(),
+          });
+        }
       }
 
       setShowEditModal(false);
       Alert.alert('Success', 'Profile updated successfully!');
+      onRefresh(); // Refresh to show updated data
     } catch (error) {
       console.error('Error updating profile:', error);
       Alert.alert('Error', 'Failed to update profile. Please try again.');
@@ -167,17 +216,33 @@ const ProfileScreen: React.FC = () => {
   const handleUpdateWorkoutPlan = async (newGoal: FitnessGoal) => {
     try {
       setIsLoading(true);
+      
+      if (!userProfile) {
+        Alert.alert('Error', 'Profile data not found');
+        return;
+      }
 
-      const updates: Partial<UserProfile> = {
-        ...userProfile!,
+      // Create a new object instead of spreading the readonly state
+      const updates: UserProfile = {
+        firstName: userProfile.firstName,
+        lastName: userProfile.lastName,
+        age: userProfile.age,
+        sex: userProfile.sex,
+        height: userProfile.height,
+        weight: userProfile.weight,
+        activityLevel: userProfile.activityLevel,
         fitnessGoal: newGoal,
+        location: userProfile.location,
+        workoutDaysPerWeek: userProfile.workoutDaysPerWeek,
+        selectedWorkoutDays: userProfile.selectedWorkoutDays,
+        preferredUnits: userProfile.preferredUnits,
       };
 
       // Update Redux
       dispatch(updateProfile(updates));
 
       // Regenerate workout and diet plans
-      const newWorkoutPlan = workoutGenerationService.generateWorkoutsForUser(updates as UserProfile);
+      const newWorkoutPlan = workoutGenerationService.generateWorkoutsForUser(updates);
       dispatch(setWorkoutPlan(newWorkoutPlan));
 
       // Update Firebase
@@ -190,7 +255,7 @@ const ProfileScreen: React.FC = () => {
       Alert.alert('Success', 'Your workout plan has been updated based on your new fitness goal!');
     } catch (error) {
       console.error('Error updating workout plan:', error);
-      Alert.alert('Error', 'Failed to update workout plan. Please try again.');
+      Alert.alert('Error', `Failed to update workout plan: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -317,7 +382,18 @@ const ProfileScreen: React.FC = () => {
 
   return (
     <Screen>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.white}
+            colors={[theme.colors.white]}
+          />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={[styles.avatar, { backgroundColor: theme.colors.gray800 }]}>
@@ -438,6 +514,11 @@ const ProfileScreen: React.FC = () => {
               Edit Profile
             </Text>
 
+            <ScrollView 
+              style={styles.modalScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+
             <View style={styles.formGroup}>
               <Text style={[styles.formLabel, { color: theme.colors.gray300 }]}>
                 Height (cm)
@@ -482,6 +563,20 @@ const ProfileScreen: React.FC = () => {
 
             <View style={styles.formGroup}>
               <Text style={[styles.formLabel, { color: theme.colors.gray300 }]}>
+                Phone Number
+              </Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.colors.gray800, color: theme.colors.white }]}
+                value={editForm.phoneNumber}
+                onChangeText={(text) => setEditForm({ ...editForm, phoneNumber: text })}
+                keyboardType="phone-pad"
+                placeholder="+234 800 000 0000"
+                placeholderTextColor={theme.colors.gray500}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: theme.colors.gray300 }]}>
                 Select Workout Days
               </Text>
               <View style={styles.daysGrid}>
@@ -513,6 +608,7 @@ const ProfileScreen: React.FC = () => {
                 ))}
               </View>
             </View>
+            </ScrollView>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -554,6 +650,10 @@ const ProfileScreen: React.FC = () => {
               This will regenerate your workout and diet plans
             </Text>
 
+            <ScrollView 
+              style={styles.modalScrollView}
+              showsVerticalScrollIndicator={false}
+            >
             <View style={styles.goalsContainer}>
               {[
                 { id: 'lose_belly_fat', label: 'Lose Belly Fat', icon: '🔥' },
@@ -582,8 +682,9 @@ const ProfileScreen: React.FC = () => {
                     {goal.label}
                   </Text>
                 </TouchableOpacity>
-              ))}
+                ))}
             </View>
+            </ScrollView>
 
             <TouchableOpacity
               style={[styles.modalButton, { backgroundColor: theme.colors.gray700, width: '100%' }]}
@@ -709,6 +810,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     maxHeight: '90%',
+  },
+  modalScrollView: {
+    maxHeight: 500,
   },
   modalTitle: {
     fontSize: 24,
