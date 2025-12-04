@@ -65,8 +65,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "f642b623-9a24-43c6-b5bd-9dc6b7874f6d"
       }
-    }
+    },
+    "owner": "kaveli"
   }
 }
